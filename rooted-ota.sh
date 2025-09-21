@@ -38,6 +38,9 @@ OTA_VERSION=${OTA_VERSION:-'latest'}
 # renovate: datasource=github-releases packageName=topjohnwu/Magisk versioning=semver-coerced
 DEFAULT_MAGISK_VERSION=v29.0
 MAGISK_VERSION=${MAGISK_VERSION:-${DEFAULT_MAGISK_VERSION}}
+# For Pixin-Magisk builds
+PIXIN_MAGISK_VERSION=${PIXIN_MAGISK_VERSION:-'latest'}
+
 
 SKIP_CLEANUP=${SKIP_CLEANUP:-''}
 
@@ -142,10 +145,10 @@ function checkBuildNecessary() {
   POTENTIAL_ASSETS=()
     
   if [[ -n "$MAGISK_PREINIT_DEVICE" ]]; then 
-    # e.g. oriole-2023121200-magisk-v26.4-4647f74-dirty.zip
-    POTENTIAL_ASSETS['magisk']="${DEVICE_ID}-${OTA_VERSION}-${currentCommit}-magisk-${MAGISK_VERSION}$(createAssetSuffix).zip"
+  POTENTIAL_ASSETS['magisk']="${DEVICE_ID}-${OTA_VERSION}-${currentCommit}-magisk-${MAGISK_VERSION}$(createAssetSuffix).zip"
+  POTENTIAL_ASSETS['pixin-magisk']="${DEVICE_ID}-${OTA_VERSION}-${currentCommit}-pixin-magisk-${PIXIN_MAGISK_VERSION}$(createAssetSuffix).zip"
   else 
-    printGreen "MAGISK_PREINIT_DEVICE not set for device, not creating magisk OTA"
+  printGreen "MAGISK_PREINIT_DEVICE not set for device, not creating magisk or pixin-magisk OTA"
   fi
   
   if [[ "$SKIP_ROOTLESS" != 'true' ]]; then
@@ -237,6 +240,17 @@ function downloadAndroidDependencies() {
   if ! ls ".tmp/magisk-$MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['magisk']+isset}" ]]; then
     curl --fail -sLo ".tmp/magisk-$MAGISK_VERSION.apk" "https://github.com/topjohnwu/Magisk/releases/download/$MAGISK_VERSION/Magisk-$MAGISK_VERSION.apk"
   fi
+  
+  if ! ls ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['pixin-magisk']+isset}" ]]; then
+  if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
+    PIXIN_MAGISK_VERSION_RESOLVED=$(curl --fail -sL -I -o /dev/null -w '%{url_effective}' https://github.com/pixincreate/Magisk/releases/latest | sed 's/.*\/tag\///;')
+  else
+    PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
+  fi
+  curl --fail -sLo ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION_RESOLVED/app-release.apk"
+  # Symlink for consistent usage in patchOTAs
+  ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
+fi
 
   if ! ls ".tmp/$OTA_TARGET.zip" >/dev/null 2>&1; then
     curl --fail -sLo ".tmp/$OTA_TARGET.zip" "$OTA_URL"
@@ -327,6 +341,9 @@ function patchOTAs() {
       args+=("--sign-cert-ota" "$CERT_OTA")
       if [[ "$flavor" == 'magisk' ]]; then
         args+=("--patch-arg=--magisk" "--patch-arg" ".tmp/magisk-$MAGISK_VERSION.apk")
+        args+=("--patch-arg=--magisk-preinit-device" "--patch-arg" "$MAGISK_PREINIT_DEVICE")
+      elif [[ "$flavor" == 'pixin-magisk' ]]; then
+        args+=("--patch-arg=--magisk" "--patch-arg" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk")
         args+=("--patch-arg=--magisk-preinit-device" "--patch-arg" "$MAGISK_PREINIT_DEVICE")
       fi
 
