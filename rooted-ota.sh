@@ -243,7 +243,7 @@ function downloadAndroidDependencies() {
   
   if ! ls ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['pixin-magisk']+isset}" ]]; then
 if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
-    ...
+    #...
     curl --fail -L -o ".tmp/pixin-magisk-latest.apk" "$apk_url"
     PIXIN_MAGISK_VERSION_RESOLVED="latest"
     # No symlink needed, file is already in place
