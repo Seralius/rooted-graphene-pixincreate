@@ -242,13 +242,17 @@ function downloadAndroidDependencies() {
   fi
   
   if ! ls ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['pixin-magisk']+isset}" ]]; then
-  if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
-    PIXIN_MAGISK_VERSION_RESOLVED=$(curl --fail -sI https://github.com/pixincreate/Magisk/releases/latest \
-      | grep -i '^location:' \
-      | sed -E 's/.*\/tag\/([^\/\r\n]+).*/\1/')
-  else
-    PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
-  fi
+if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
+    latest_prerelease_api="https://api.github.com/repos/pixincreate/Magisk/releases"
+    apk_url=$(curl -s "$latest_prerelease_api" | jq -r '[.[] | select(.prerelease==true and .draft==false)][0].assets[] | select(.name=="app-release.apk") | .browser_download_url')
+    if [[ -z "$apk_url" || "$apk_url" == "null" ]]; then
+        echo "Could not find app-release.apk in the latest pre-release!"
+        exit 1
+    fi
+    curl --fail -L -o ".tmp/pixin-magisk-latest.apk" "$apk_url"
+else
+    curl --fail -L -o ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION/app-release.apk"
+fi
   curl --fail -sLo ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION_RESOLVED/app-release.apk"
   # Symlink for consistent usage in patchOTAs
   ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
