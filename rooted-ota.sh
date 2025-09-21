@@ -243,7 +243,7 @@ function downloadAndroidDependencies() {
   
   if ! ls ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['pixin-magisk']+isset}" ]]; then
   if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
-    PIXIN_MAGISK_VERSION_RESOLVED=$(curl --fail -sL -I -o /dev/null -w '%{url_effective}' https://github.com/pixincreate/Magisk/releases/latest | sed 's/.*\/tag\///;')
+    PIXIN_MAGISK_VERSION_RESOLVED=$(curl --fail -sI https://github.com/pixincreate/Magisk/releases/latest | grep -i '^location:' | sed -E 's#.*/tag/([^/]+).*#\1#')
   else
     PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
   fi
