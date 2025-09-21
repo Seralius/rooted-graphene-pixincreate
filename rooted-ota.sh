@@ -243,21 +243,16 @@ function downloadAndroidDependencies() {
   
   if ! ls ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['pixin-magisk']+isset}" ]]; then
 if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
-    latest_prerelease_api="https://api.github.com/repos/pixincreate/Magisk/releases"
-    apk_url=$(curl -s "$latest_prerelease_api" | jq -r '[.[] | select(.prerelease==true and .draft==false)][0].assets[] | select(.name=="app-release.apk") | .browser_download_url')
-    if [[ -z "$apk_url" || "$apk_url" == "null" ]]; then
-        echo "Could not find app-release.apk in the latest pre-release!"
-        exit 1
-    fi
+    ...
     curl --fail -L -o ".tmp/pixin-magisk-latest.apk" "$apk_url"
-    # Set this so downstream code always has a value
     PIXIN_MAGISK_VERSION_RESOLVED="latest"
+    # No symlink needed, file is already in place
 else
     PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
     curl --fail -L -o ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION_RESOLVED/app-release.apk"
+    # Only make symlink if names differ
+    ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
 fi
-# Symlink for downstream code
-ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
 fi
 
   if ! ls ".tmp/$OTA_TARGET.zip" >/dev/null 2>&1; then
