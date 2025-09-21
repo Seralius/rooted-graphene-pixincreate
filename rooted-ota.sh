@@ -250,12 +250,14 @@ if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
         exit 1
     fi
     curl --fail -L -o ".tmp/pixin-magisk-latest.apk" "$apk_url"
+    # Set this so downstream code always has a value
+    PIXIN_MAGISK_VERSION_RESOLVED="latest"
 else
-    curl --fail -L -o ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION/app-release.apk"
+    PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
+    curl --fail -L -o ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION_RESOLVED/app-release.apk"
 fi
-  curl --fail -sLo ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION_RESOLVED/app-release.apk"
-  # Symlink for consistent usage in patchOTAs
-  ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
+# Symlink for downstream code
+ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
 fi
 
   if ! ls ".tmp/$OTA_TARGET.zip" >/dev/null 2>&1; then
