@@ -241,19 +241,37 @@ function downloadAndroidDependencies() {
     curl --fail -sLo ".tmp/magisk-$MAGISK_VERSION.apk" "https://github.com/topjohnwu/Magisk/releases/download/$MAGISK_VERSION/Magisk-$MAGISK_VERSION.apk"
   fi
   
+  # ---------- PATCHED SECTION: PIXINCREATE PRERELEASE HANDLING ----------
   if ! ls ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk" >/dev/null 2>&1 && [[ "${POTENTIAL_ASSETS['pixin-magisk']+isset}" ]]; then
-if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
-    #...
-    curl --fail -L -o ".tmp/pixin-magisk-latest.apk" "$apk_url"
-    PIXIN_MAGISK_VERSION_RESOLVED="latest"
-    # No symlink needed, file is already in place
-else
-    PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
-    curl --fail -L -o ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "https://github.com/pixincreate/Magisk/releases/download/$PIXIN_MAGISK_VERSION_RESOLVED/app-release.apk"
-    # Only make symlink if names differ
+    if [[ "$PIXIN_MAGISK_VERSION" == "latest" ]]; then
+      print "Querying latest pixincreate/Magisk prerelease for app-release.apk..."
+      PIXIN_PRERELEASE_JSON=$(curl --fail -sL "https://api.github.com/repos/pixincreate/Magisk/releases?per_page=5")
+      # Find the latest prerelease (skip full releases)
+      # Get the first prerelease that has an asset named app-release.apk
+      PIXIN_PRERELEASE_INFO=$(echo "$PIXIN_PRERELEASE_JSON" | \
+        jq -r '.[] | select(.prerelease == true) | select(.assets[]?.name == "app-release.apk") | {tag_name: .tag_name, asset_url: (.assets[] | select(.name == "app-release.apk") | .browser_download_url)}' | head -n2)
+      PIXIN_MAGISK_VERSION_RESOLVED=$(echo "$PIXIN_PRERELEASE_INFO" | jq -r '.tag_name' | head -n1)
+      PIXIN_MAGISK_APK_URL=$(echo "$PIXIN_PRERELEASE_INFO" | jq -r '.asset_url' | head -n1)
+    else
+      PIXIN_MAGISK_VERSION_RESOLVED="$PIXIN_MAGISK_VERSION"
+      # Try to resolve the URL for the specific tag; fallback if not found
+      PIXIN_PRERELEASE_JSON=$(curl --fail -sL "https://api.github.com/repos/pixincreate/Magisk/releases/tags/$PIXIN_MAGISK_VERSION_RESOLVED")
+      PIXIN_MAGISK_APK_URL=$(echo "$PIXIN_PRERELEASE_JSON" | jq -r '.assets[] | select(.name == "app-release.apk") | .browser_download_url')
+      if [[ -z "$PIXIN_MAGISK_APK_URL" ]]; then
+        printRed "Could not find app-release.apk for pixincreate/Magisk tag: $PIXIN_MAGISK_VERSION_RESOLVED"
+        exit 1
+      fi
+    fi
+    if [[ -z "$PIXIN_MAGISK_APK_URL" ]]; then
+      printRed "Could not find any app-release.apk in pixincreate/Magisk prereleases!"
+      exit 1
+    fi
+    print "Downloading $PIXIN_MAGISK_APK_URL as .tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk"
+    curl --fail -sLo ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" "$PIXIN_MAGISK_APK_URL"
+    # Symlink for consistent usage in patchOTAs
     ln -sf "pixin-magisk-$PIXIN_MAGISK_VERSION_RESOLVED.apk" ".tmp/pixin-magisk-$PIXIN_MAGISK_VERSION.apk"
-fi
-fi
+  fi
+  # ------------------------------------------------------------------------
 
   if ! ls ".tmp/$OTA_TARGET.zip" >/dev/null 2>&1; then
     curl --fail -sLo ".tmp/$OTA_TARGET.zip" "$OTA_URL"
@@ -320,7 +338,7 @@ function patchOTAs() {
   fi
   if ! ls ".tmp/oemunlockonboot.zip" >/dev/null 2>&1; then
     curl --fail -sL "https://github.com/chenxiaolong/OEMUnlockOnBoot/releases/download/v${OEMUNLOCKONBOOT_VERSION}/OEMUnlockOnBoot-${OEMUNLOCKONBOOT_VERSION}-release.zip" > .tmp/oemunlockonboot.zip
-    curl --fail -sL "https://github.com/chenxiaolong/OEMUnlockOnBoot/releases/download/v${OEMUNLOCKONBOOT_VERSION}/OEMUnlockOnBoot-${OEMUNLOCKONBOOT_VERSION}-release.zip.sig" > .tmp/oemunlockonboot.zip.sig
+    curl --fail -sL "https://github.com/chenxiaolong/OEMUnlockOnBoot/releases/download/v${OEMUNLOCKONBOOT_VERSION}/OEMUnlockOnBoot-${OEMUNLOCKONBOOT_VERSION}-release.zip.sig" > .tmp/oemunlockonboot.zi[...]
   fi
   if ! ls ".tmp/my-avbroot-setup" >/dev/null 2>&1; then
     git clone https://github.com/chenxiaolong/my-avbroot-setup .tmp/my-avbroot-setup
@@ -435,7 +453,7 @@ function createReleaseIfNecessary() {
     else 
       # When pushing to different repo's GH pages, generating notes does not make too much sense. Refer to the used repo's "version" instead. 
       current_commit=$(git rev-parse --short HEAD)
-      changelog="Update to [GrapheneOS ${OTA_VERSION}](https://grapheneos.org/releases#${OTA_VERSION}).\n\nRelease created using ${src_repo}@${current_commit}. See [Changelog](https://github.com/${src_repo}/blob/${current_commit}/README.md#notable-changelog)."
+      changelog="Update to [GrapheneOS ${OTA_VERSION}](https://grapheneos.org/releases#${OTA_VERSION}).\n\nRelease created using ${src_repo}@${current_commit}. See [Changelog](https://github.com/${src[...]
     fi
     
     response=$(curl -sL -X POST -H "Authorization: token $GITHUB_TOKEN" \
